@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>QR Code Pix com Telefone</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      margin: 20px;
+    }
+    input, button {
+      width: 90%;
+      max-width: 300px;
+      padding: 10px;
+      margin: 10px auto;
+      font-size: 16px;
+    }
+    #logo {
+      max-width: 100px;  /* Metade do tamanho anterior */
+      width: 100%;
+      height: auto;
+      margin: 0 auto 20px;
+      display: block;
+    }
+    #qrcode img {
+      width: 200px;
+      height: 200px;
+    }
+    #valorConfirmado {
+      color: red;
+      font-weight: bold;
+      font-size: 18px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Logo acima do título -->
+  <img id="logo" src="Logo7E.png" alt="Logo">
+
+  <h2>Gerador de QR Code Pix</h2>
+
+  <div id="form">
+    <label for="valor">Valor (R$):</label><br>
+    <input type="number" id="valor" step="0.01" min="0"><br>
+    <button onclick="gerarQRCode()">Gerar QR Code</button>
+  </div>
+
+  <div id="resultado" style="display:none;">
+    <h3>QR Code Pix:</h3>
+    <div id="qrcode"></div>
+    <div id="valorConfirmado"></div><br>
+    <button onclick="resetar()">Nova Venda</button>
+  </div>
+
+  <script>
+    const chavePix = "+5527998233190";
+    const nomeRecebedor = "Augusto C. Norbim";
+    const cidade = "Vila Velha";
+
+    function formatField(id, value) {
+      const length = String(value).length.toString().padStart(2, '0');
+      return id + length + value;
+    }
+
+    function gerarPayload(valor) {
+      const valorFormatado = valor.toFixed(2);
+
+      const gui = formatField("00", "br.gov.bcb.pix");
+      const chave = formatField("01", chavePix);
+      const merchantAccountInfo = formatField("26", gui + chave);
+
+      const txid = formatField("05", "***");
+      const additionalDataField = formatField("62", txid);
+
+      const payloadSemCRC =
+        formatField("00", "01") +
+        merchantAccountInfo +
+        formatField("52", "0000") +
+        formatField("53", "986") +
+        formatField("54", valorFormatado) +
+        formatField("58", "BR") +
+        formatField("59", nomeRecebedor) +
+        formatField("60", cidade) +
+        additionalDataField +
+        "6304";
+
+      const crc = crc16(payloadSemCRC).toUpperCase();
+      return payloadSemCRC + crc;
+    }
+
+    function crc16(str) {
+      let crc = 0xFFFF;
+      for (let i = 0; i < str.length; i++) {
+        crc ^= str.charCodeAt(i) << 8;
+        for (let j = 0; j < 8; j++) {
+          if ((crc & 0x8000) !== 0) {
+            crc = (crc << 1) ^ 0x1021;
+          } else {
+            crc <<= 1;
+          }
+          crc &= 0xFFFF;
+        }
+      }
+      return crc.toString(16).padStart(4, '0');
+    }
+
+    function gerarQRCode() {
+      const valorInput = document.getElementById("valor");
+      const valor = parseFloat(valorInput.value.replace(",", "."));
+      if (isNaN(valor) || valor <= 0) {
+        alert("Digite um valor válido.");
+        return;
+      }
+
+      const payload = gerarPayload(valor);
+
+      QRCode.toDataURL(payload, { width: 200 }, function (error, url) {
+        if (error) {
+          console.error(error);
+          alert("Erro ao gerar o QR Code.");
+          return;
+        }
+
+        const qrcodeDiv = document.getElementById('qrcode');
+        qrcodeDiv.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = url;
+        qrcodeDiv.appendChild(img);
+
+        const valorConfirmado = document.getElementById('valorConfirmado');
+        valorConfirmado.textContent = `Valor: R$ ${valor.toFixed(2).replace(".", ",")}`;
+
+        document.getElementById("form").style.display = "none";
+        document.getElementById("resultado").style.display = "block";
+      });
+    }
+
+    function resetar() {
+      document.getElementById("valor").value = "";
+      document.getElementById("form").style.display = "block";
+      document.getElementById("resultado").style.display = "none";
+      document.getElementById("qrcode").innerHTML = "";
+      document.getElementById("valorConfirmado").textContent = "";
+    }
+  </script>
+</body>
+</html>
